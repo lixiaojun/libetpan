@@ -329,6 +329,9 @@ static int mailimap_envelope_parse(mailstream * fd, MMAPString * buffer,
 				   size_t progr_rate,
 				   progress_function * progr_fun);
 
+static int mailimap_envelope_space_parse(mailstream * fd, MMAPString * buffer,
+                                         size_t * indx);
+
 
 static int
 mailimap_env_bcc_parse(mailstream * fd, MMAPString * buffer,
@@ -4764,209 +4767,231 @@ static int mailimap_digit_nz_parse(mailstream * fd, MMAPString * buffer,
 */
 
 static int mailimap_envelope_parse(mailstream * fd, MMAPString * buffer,
-				   size_t * indx,
-				   struct mailimap_envelope ** result,
-				   size_t progr_rate,
-				   progress_function * progr_fun)
+                                   size_t * indx,
+                                   struct mailimap_envelope ** result,
+                                   size_t progr_rate,
+                                   progress_function * progr_fun)
 {
-  size_t cur_token;
-  char * date;
-  char * subject;
-  struct mailimap_env_from * from;
-  struct mailimap_env_sender * sender;
-  struct mailimap_env_reply_to * reply_to;
-  struct mailimap_env_to * to;
-  struct mailimap_env_cc * cc;
-  struct mailimap_env_bcc * bcc;
-  char * in_reply_to;
-  char * message_id;
-  struct mailimap_envelope * envelope;
-  int r;
-  int res;
-  
-  date = NULL;
-  subject = NULL;
-  from = NULL;
-  sender = NULL;
-  reply_to = NULL;
-  to = NULL;
-  cc = NULL;
-  bcc = NULL;
-  in_reply_to = NULL;
-  message_id = NULL;
+    size_t cur_token;
+    char * date;
+    char * subject;
+    struct mailimap_env_from * from;
+    struct mailimap_env_sender * sender;
+    struct mailimap_env_reply_to * reply_to;
+    struct mailimap_env_to * to;
+    struct mailimap_env_cc * cc;
+    struct mailimap_env_bcc * bcc;
+    char * in_reply_to;
+    char * message_id;
+    struct mailimap_envelope * envelope;
+    int r;
+    int res;
+    
+    date = NULL;
+    subject = NULL;
+    from = NULL;
+    sender = NULL;
+    reply_to = NULL;
+    to = NULL;
+    cc = NULL;
+    bcc = NULL;
+    in_reply_to = NULL;
+    message_id = NULL;
+    
+    cur_token = * indx;
+    
+    r = mailimap_oparenth_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto err;
+    }
+    
+    r = mailimap_env_date_parse(fd, buffer, &cur_token, &date,
+                                progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto err;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto date;
+    }
+    
+    r = mailimap_env_subject_parse(fd, buffer, &cur_token, &subject,
+                                   progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto date;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto subject;
+    }
+    
+    r = mailimap_env_from_parse(fd, buffer, &cur_token, &from,
+                                progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto subject;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto from;
+    }
+    
+    r = mailimap_env_sender_parse(fd, buffer, &cur_token, &sender,
+                                  progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto from;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto sender;
+    }
+    
+    r = mailimap_env_reply_to_parse(fd, buffer, &cur_token, &reply_to,
+                                    progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto sender;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto reply_to;
+    }
+    
+    r = mailimap_env_to_parse(fd, buffer, &cur_token, &to,
+                              progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto reply_to;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto to;
+    }
+    
+    r = mailimap_env_cc_parse(fd, buffer, &cur_token, &cc,
+                              progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto to;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto cc;
+    }
+    
+    r = mailimap_env_bcc_parse(fd, buffer, &cur_token, &bcc,
+                               progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto cc;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto bcc;
+    }
+    
+    r = mailimap_env_in_reply_to_parse(fd, buffer, &cur_token, &in_reply_to,
+                                       progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto bcc;
+    }
+    
+    r = mailimap_envelope_space_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto in_reply_to;
+    }
+    
+    r = mailimap_env_message_id_parse(fd, buffer, &cur_token, &message_id,
+                                      progr_rate, progr_fun);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto in_reply_to;
+    }
+    
+    r = mailimap_cparenth_parse(fd, buffer, &cur_token);
+    if (r != MAILIMAP_NO_ERROR) {
+        res = r;
+        goto message_id;
+    }
+    
+    envelope = mailimap_envelope_new(date, subject, from, sender, reply_to, to,
+                                     cc, bcc, in_reply_to, message_id);
+    if (envelope == NULL) {
+        res = MAILIMAP_ERROR_MEMORY;
+        goto message_id;
+    }
+    
+    * result = envelope;
+    * indx = cur_token;
+    
+    return MAILIMAP_NO_ERROR;
+    
+message_id:
+    mailimap_env_message_id_free(message_id);
+in_reply_to:
+    mailimap_env_in_reply_to_free(in_reply_to);
+bcc:
+    mailimap_env_bcc_free(bcc);
+cc:
+    mailimap_env_cc_free(cc);
+to:
+    mailimap_env_to_free(to);
+reply_to:
+    mailimap_env_reply_to_free(reply_to);
+sender:
+    mailimap_env_sender_free(sender);
+from:
+    mailimap_env_from_free(from);
+subject:
+    mailimap_env_subject_free(date);
+date:
+    mailimap_env_date_free(date);
+err:
+    return res;
+}
 
-  cur_token = * indx;
-
-  r = mailimap_oparenth_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto err;
-  }
-
-  r = mailimap_env_date_parse(fd, buffer, &cur_token, &date,
-			      progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto err;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto date;
-  }
-
-  r = mailimap_env_subject_parse(fd, buffer, &cur_token, &subject,
-				 progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto date;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto subject;
-  }
-
-  r = mailimap_env_from_parse(fd, buffer, &cur_token, &from,
-			      progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto subject;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto from;
-  }
-
-  r = mailimap_env_sender_parse(fd, buffer, &cur_token, &sender,
-				progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto from;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto sender;
-  }
-
-  r = mailimap_env_reply_to_parse(fd, buffer, &cur_token, &reply_to,
-				  progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto sender;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto reply_to;
-  }
-
-  r = mailimap_env_to_parse(fd, buffer, &cur_token, &to,
-			    progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto reply_to;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto to;
-  }
-
-  r = mailimap_env_cc_parse(fd, buffer, &cur_token, &cc,
-			    progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto to;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto cc;
-  }
-
-  r = mailimap_env_bcc_parse(fd, buffer, &cur_token, &bcc,
-			     progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto cc;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto bcc;
-  }
-
-  r = mailimap_env_in_reply_to_parse(fd, buffer, &cur_token, &in_reply_to,
-				     progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto bcc;
-  }
-
-  r = mailimap_space_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto in_reply_to;
-  }
-
-  r = mailimap_env_message_id_parse(fd, buffer, &cur_token, &message_id,
-				    progr_rate, progr_fun);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto in_reply_to;
-  }
-
-  r = mailimap_cparenth_parse(fd, buffer, &cur_token);
-  if (r != MAILIMAP_NO_ERROR) {
-    res = r;
-    goto message_id;
-  }
-
-  envelope = mailimap_envelope_new(date, subject, from, sender, reply_to, to,
-				   cc, bcc, in_reply_to, message_id);
-  if (envelope == NULL) {
-    res = MAILIMAP_ERROR_MEMORY;
-    goto message_id;
-  }
-
-  * result = envelope;
-  * indx = cur_token;
-
-  return MAILIMAP_NO_ERROR;
-
- message_id:
-  mailimap_env_message_id_free(message_id);
- in_reply_to:
-  mailimap_env_in_reply_to_free(in_reply_to);
- bcc:
-  mailimap_env_bcc_free(bcc);
- cc:
-  mailimap_env_cc_free(cc);
- to:
-  mailimap_env_to_free(to);
- reply_to:
-  mailimap_env_reply_to_free(reply_to);
- sender:
-  mailimap_env_sender_free(sender);
- from:
-  mailimap_env_from_free(from);
- subject:
-  mailimap_env_subject_free(date);
- date:
-  mailimap_env_date_free(date);
- err:
-  return res;
+static int mailimap_envelope_space_parse(mailstream * fd, MMAPString * buffer,
+                                         size_t * indx)
+{
+    int res;
+    size_t cur_token;
+    cur_token = * indx;
+    res = MAILIMAP_ERROR_PARSE;
+    
+#ifdef UNSTRICT_SYNTAX
+    char cur_char = buffer->str[cur_token];
+    if (cur_char == '(' || cur_char == '"') {
+        res = MAILIMAP_NO_ERROR;
+    }
+#endif
+    
+    if (res==MAILIMAP_ERROR_PARSE) {
+        res =mailimap_space_parse(fd, buffer, indx);
+    }
+    
+    return res;
 }
 
 /*
