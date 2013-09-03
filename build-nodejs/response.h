@@ -1,7 +1,7 @@
 /*
  * libEtPan! -- a mail stuff library
  *
- * Copyright (C) 2001, 2005 - DINH Viet Hoa
+ * Copyright (C) 2001, 2013 - DINH Viet Hoa
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,38 +29,51 @@
  * SUCH DAMAGE.
  */
 
-#ifndef MAILIMAP_COMPRESS_H
+#ifndef ETPANJS_RESPONSE_H
+#define ETPANJS_RESPONSE_H
 
-#define MAILIMAP_COMPRESS_H
+#include <node.h>
+#include <libetpan/libetpan.h>
 
-#include <libetpan/mailimap_types.h>
+using namespace v8;
 
-/*
-   mailimap_compress()
+namespace etpanjs {
 
-   This function will request IMAP compression by sending
-   a COMPRESS command. It will also change the stream connection to
-   a compressed stream (mailstream_compress).
+    class Response : public node::ObjectWrap {
+    public:
+        Response();
+        virtual ~Response();
+    
+        static Persistent<FunctionTemplate> responseTemplate;
 
-   @param session IMAP session
+        static void Init(Handle<Object> exports);
+        static Handle<Object> New(const Arguments& args);
+        static Handle<Object> New(int result, int type, bool hasIdleData);
+        
+        virtual void setResponse(struct mailimap_response * response);
+        virtual struct mailimap_response * getResponse();
+        
+        virtual void setGreeting(struct mailimap_greeting * greeting);
+        virtual struct mailimap_greeting * getGreeting();
+        
+        virtual void setContReq(struct mailimap_continue_req * contReq);
+        virtual struct mailimap_continue_req * getContReq();
+        
+        virtual void setIdleDataResponse(clist * idleDataResponse);
+        virtual clist * getIdleDataResponse();
+        
+    private:
+        // general response
+        struct mailimap_response * mResponse;
+        // greeting response on connection
+        struct mailimap_greeting * mGreeting;
+        // continue-req response
+        struct mailimap_continue_req * mContReq;
+        // idle data response
+        clist * mIdleDataResponse;
+    };
 
-   @return the return code is one of MAILIMAP_ERROR_XXX or
-     MAILIMAP_NO_ERROR codes
- */
-
-int mailimap_compress(mailimap * session);
-
-/*
-   mailimap_has_compress_deflate()
-
-   This function will return 1 if compression deflate is available
-   on the server else it will return 0.
-
-   @param session IMAP session
-
-   @return returns 1 if compression deflate is available on the server.
- */
-
-int mailimap_has_compress_deflate(mailimap * session);
+}
 
 #endif
+
